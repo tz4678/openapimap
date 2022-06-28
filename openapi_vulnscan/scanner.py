@@ -3,6 +3,9 @@ import asyncio
 import dataclasses
 import sys
 import typing
+from copy import deepcopy
+# from concurrent.futures import Executor, ProcessPoolExecutor
+from collections import defaultdict, namedtuple
 from contextlib import asynccontextmanager
 from urllib.parse import quote_plus
 
@@ -18,6 +21,9 @@ try:
     import ujson as json
 except ImportError:
     import json
+    
+
+RequestData = namedtuple('RequestData', 'method url query headers cookies data json')
 
 
 @dataclasses.dataclass
@@ -79,7 +85,7 @@ class OpenApiVulnScanner:
             )
             await instance.scan(args.url)
         except Exception as ex:
-            console.error(ex)
+            console.error("Critical: %s", ex)
             sys.exit(1)
 
     @asynccontextmanager
@@ -104,13 +110,48 @@ class OpenApiVulnScanner:
             finally:
                 queue.task_done()
 
-    def filter_parameters(
-        self, params: list[dict[str, typing.Any]], location: str
-    ) -> list[dict[str, typing.Any]]:
-        return list(filter(lambda x: x['in'] == location, params))
-
     def replace_path(path: str, params: dict[str, str]) -> str:
         return path.format(**{k: quote_plus(v) for k, v in params.items()})
+    
+    def fuzzing(self, params: list[dict[str, typing.Any]]) -> list[dict[str, typing.Any]]:
+        """ Подставляет случайные параметры """
+        params = deepcopy(params)
+        # __value
+        return params
+    
+    def inject(self, value: typing.Any) -> typing.Any:
+        return value
+        
+    def get_request_data(self, api_url: yarl.URL, operation: str, path: str, params: list[dict[str, typing.Any]]) -> RequestData:
+        collected = defaultdict(dict)
+        for x in parameters:
+            loc = x['in']
+            if loc == 'body':
+                assert 'name' not in x 
+                collected[loc] = x['__value']
+            else:
+                collected[loc][x['name']] = x['__value']
+        path_params = collected['path']
+        query = collected['query']
+        headers = collected['header']
+        cookies = collected['cookie']
+        data = collected['formData']
+        json = collected['body']
+        assert not data or not body
+        path = self.replace_path(path, path_params)
+        endpoint = api_url.with_path(path)
+        return RequestData(operation.upper(), endpoint, query, headers, cookies, data, json)
+                
+    def generate_tests(self, api_url: yarl.URL, path: str, operation: str, path_item: dict[str, typing.Any]) -> typing.Iterable[RequestData]:
+        if 'produces' in path_item:
+            assert 'application/json' in path_item['produces']
+        params = path_item.get('parameters', [])
+        # Тестируем каждый параметр по очереди
+        for i in range(len(params)):
+            test_params = self.fuzzing(params)
+            # Тут еще body нужно обработать
+            test_params[i] = self.inject(test_params[i])
+            yield self.get_request_data(api_url, operation, path, test_params)
 
     # https://github.com/tz4678/openapi-vulnerability-scanner/blob/main/openapi_scanner/scanner.py
     async def scan(self, url: str) -> None:
@@ -118,21 +159,14 @@ class OpenApiVulnScanner:
         console.info("Start scanning: %s", url)
         parser = ResolvingParser(url)
         spec = parser.specification
-        if 'swagger' in spec and Version(spec['swagger']) >= Version('2.0'):
-            base_url = yarl.URL(f"{spec['schemes'][0]}://{spec['host']}")
+        if 'swagger' in spec:
+            assert Version('3.0') > Version(spec['swagger']) >= Version('2.0')
+            api_url = yarl.URL(f"{spec['schemes'][0]}://{spec['host']}")
             paths = spec.get('paths', {})
             for path, path_object in paths.items():
-                for operation, path_item in path_object.items():
-                    if 'produces' in path_item:
-                        assert 'application/json' in path_item['produces']
-                    params = path_item.get('parameters', [])
-                    path_params = self.filter_parameters(params, 'path')
-                    query_params = self.filter_parameters(params, 'query')
-                    header_params = self.filter_parameters(params, 'header')
-                    formdata_params = self.filter_parameters(params, 'formData')
-                    body_params = self.filter_parameters(params, 'body')
-                    console.log("%s %s", operation, path)
-                    # endpoint = base_url.with_path(path)
+                for operation, path_item in path_object.items():              
+                    for req_data in self.generate_tests(api_url, path, operation, path_item):
+                        queue.put_nowait(req_data)
         else:
             raise ValueError("Invalid specification")
         # queue = asyncio.Queue()
