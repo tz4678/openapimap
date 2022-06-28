@@ -3,10 +3,11 @@ import asyncio
 import dataclasses
 import sys
 import typing
-from copy import deepcopy
+
 # from concurrent.futures import Executor, ProcessPoolExecutor
 from collections import defaultdict, namedtuple
 from contextlib import asynccontextmanager
+from copy import deepcopy
 from urllib.parse import quote_plus
 
 import aiohttp
@@ -21,9 +22,11 @@ try:
     import ujson as json
 except ImportError:
     import json
-    
 
-RequestData = namedtuple('RequestData', 'method url query headers cookies data json')
+
+RequestData = namedtuple(
+    'RequestData', 'method url query headers cookies data json'
+)
 
 
 @dataclasses.dataclass
@@ -112,22 +115,30 @@ class OpenApiVulnScanner:
 
     def replace_path(path: str, params: dict[str, str]) -> str:
         return path.format(**{k: quote_plus(v) for k, v in params.items()})
-    
-    def fuzzing(self, params: list[dict[str, typing.Any]]) -> list[dict[str, typing.Any]]:
-        """ Подставляет случайные параметры """
+
+    def fuzzing(
+        self, params: list[dict[str, typing.Any]]
+    ) -> list[dict[str, typing.Any]]:
+        """Подставляет случайные параметры"""
         params = deepcopy(params)
         # __value
         return params
-    
+
     def inject(self, value: typing.Any) -> typing.Any:
         return value
-        
-    def get_request_data(self, api_url: yarl.URL, operation: str, path: str, params: list[dict[str, typing.Any]]) -> RequestData:
+
+    def get_request_data(
+        self,
+        api_url: yarl.URL,
+        operation: str,
+        path: str,
+        params: list[dict[str, typing.Any]],
+    ) -> RequestData:
         collected = defaultdict(dict)
-        for x in parameters:
+        for x in params:
             loc = x['in']
             if loc == 'body':
-                assert 'name' not in x 
+                assert 'name' not in x
                 collected[loc] = x['__value']
             else:
                 collected[loc][x['name']] = x['__value']
@@ -140,9 +151,17 @@ class OpenApiVulnScanner:
         assert not data or not body
         path = self.replace_path(path, path_params)
         endpoint = api_url.with_path(path)
-        return RequestData(operation.upper(), endpoint, query, headers, cookies, data, json)
-                
-    def generate_tests(self, api_url: yarl.URL, path: str, operation: str, path_item: dict[str, typing.Any]) -> typing.Iterable[RequestData]:
+        return RequestData(
+            operation.upper(), endpoint, query, headers, cookies, data, json
+        )
+
+    def generate_tests(
+        self,
+        api_url: yarl.URL,
+        path: str,
+        operation: str,
+        path_item: dict[str, typing.Any],
+    ) -> typing.Iterable[RequestData]:
         if 'produces' in path_item:
             assert 'application/json' in path_item['produces']
         params = path_item.get('parameters', [])
@@ -164,8 +183,10 @@ class OpenApiVulnScanner:
             api_url = yarl.URL(f"{spec['schemes'][0]}://{spec['host']}")
             paths = spec.get('paths', {})
             for path, path_object in paths.items():
-                for operation, path_item in path_object.items():              
-                    for req_data in self.generate_tests(api_url, path, operation, path_item):
+                for operation, path_item in path_object.items():
+                    for req_data in self.generate_tests(
+                        api_url, path, operation, path_item
+                    ):
                         queue.put_nowait(req_data)
         else:
             raise ValueError("Invalid specification")
