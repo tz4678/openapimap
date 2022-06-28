@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch OpenAPI Vulnerability Scanner",
+      "type": "python",
+      "request": "launch",
+      "module": "openapi_vulnscan",
+      "justMyCode": true,
+      "args": ["http://petstore.swagger.io/v2/swagger.json"],
+      "autoReload": {
+        "enable": true
+      }
+    }
+  ]
+}

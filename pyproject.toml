@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "openapi-vulnscan"
+version = "0.1.0"
+description = ""
+authors = ["tz4678 <tz4678@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+aiohttp = "^3.8.1"
+aiodns = "^3.0.0"
+cchardet = "^2.1.7"
+openapi-spec-validator = "^0.4.0"
+prance = "^0.21.8"
+ujson = "^5.3.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+black = "^22.3.0"
+isort = "^5.10.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
