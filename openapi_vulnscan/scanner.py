@@ -69,18 +69,18 @@ class OpenApiVulnScanner:
     @classmethod
     @async_run
     async def run(cls, argv: typing.Sequence | None = None) -> None:
-        args = cls.parse_args(argv)
-        scanner = cls(
-            headers=dict(args.header),
-            num_workers=args.num_workers,
-            timeout=args.timeout,
-            user_agent=args.user_agent,
-        )
         try:
-            await scanner.scan(args.url)
-        except Exception as e:
-            console.error(e)
-            sys.exit(-1)
+            args = cls.parse_args(argv)
+            instance = cls(
+                headers=dict(args.header),
+                num_workers=args.num_workers,
+                timeout=args.timeout,
+                user_agent=args.user_agent,
+            )
+            await instance.scan(args.url)
+        except Exception as ex:
+            console.error(ex)
+            sys.exit(1)
 
     @asynccontextmanager
     async def get_session(self) -> typing.AsyncIterable[aiohttp.ClientSession]:
