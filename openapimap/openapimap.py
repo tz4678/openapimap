@@ -148,7 +148,7 @@ class OpenAPIMap:
                 ]
             case 'integer' | 'number':
                 if 'id' in lower_name:
-                    return random.randint(1, 100)
+                    return random.randint(3, 10)
                 match schema.get('format'):
                     case 'int32' | 'int64':
                         return random.randint(~(1 << 31) + 1, (1 << 31) - 1)
@@ -179,7 +179,10 @@ class OpenAPIMap:
                     return random_phone_number()
                 if 'email' in lower_name:
                     return random_email()
-                return 'z' * schema.get('minLength', 10)
+                minlen = schema.get('minLength', 5)
+                if len(name) >= minlen:
+                    return name
+                return 'q' * minlen
         raise ValueError(item)
 
     def generate_test_requests(
