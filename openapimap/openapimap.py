@@ -28,6 +28,9 @@ try:
 except ImportError:
     import json
 
+
+SUPER_PASSWORD = 'T0p$3cR3t'
+
 RequestInfo = namedtuple('RequestInfo', 'method url headers cookies data json')
 
 
@@ -113,7 +116,10 @@ class OpenAPIMap:
     def normalize_url(self, url: str) -> str:
         return url
 
-    def fuzzing(self, item: dict[str, typing.Any]) -> typing.Any:
+    # name нужен для `properties: { name: { ... } }`
+    def fuzzing(
+        self, item: dict[str, typing.Any], name: str | None = None
+    ) -> typing.Any:
         if 'oneOf' in item:
             return random.choice(item['oneOf'])
         # https://spec.openapis.org/oas/v3.1.0#example-object
@@ -127,10 +133,13 @@ class OpenAPIMap:
             return item['example']
         if 'enum' in schema:
             return random.choice(schema['enum'])
+        name = name or item.get('name', '')
+        lower_name = name.lower()
         match schema.get('type'):
             case 'object':
                 return {
-                    k: self.fuzzing(v) for k, v in schema['properties'].items()
+                    k: self.fuzzing(v, k)
+                    for k, v in schema['properties'].items()
                 }
             case 'array':
                 return [
@@ -138,11 +147,11 @@ class OpenAPIMap:
                     for _ in range(schema.get('minItems', 1))
                 ]
             case 'integer' | 'number':
+                if 'id' in lower_name:
+                    return random.randint(1, 100)
                 match schema.get('format'):
                     case 'int32' | 'int64':
-                        # Часто для ID используется, а последний не может быть отрицательным
-                        # return random.randint(~(1 << 31) + 1, (1 << 31) - 1)
-                        return random.randint(1, 100)
+                        return random.randint(~(1 << 31) + 1, (1 << 31) - 1)
                     case _:
                         return random.random()
             case 'boolean':
@@ -153,26 +162,24 @@ class OpenAPIMap:
                         return str(random_datetime().date())
                     case 'date-time':
                         return str(random_datetime())
-                    # case 'password':
-                    #     return 'T0p$3cR3t'
-                    # case 'email':
-                    #     return random_email()
+                    case 'password':
+                        return SUPER_PASSWORD
+                    case 'email':
+                        return random_email()
                     case 'uuid':
                         return str(uuid.uuid4())
-                    case _:
-                        name = item.get('name', '')
-                        lower_name = name.lower()
-                        if 'first' in lower_name:
-                            return random.choice(['John', 'Joe', 'Jack'])
-                        if 'last' in lower_name:
-                            return random.choice(['Smith', 'Wu', 'Li'])
-                        if 'pass' in lower_name:
-                            return 'T0p$3cR3t'
-                        if 'phone' in lower_name:
-                            return random_phone_number()
-                        if 'email' in lower_name:
-                            return random_email()
-                        return 'z' * schema.get('minLength', 10)
+                # raise ValueError('lower ' + lower_name)
+                if 'first' in lower_name:
+                    return random.choice(['John', 'Joe', 'Jack'])
+                if 'last' in lower_name:
+                    return random.choice(['Smith', 'Wu', 'Li'])
+                if 'pass' in lower_name:
+                    return SUPER_PASSWORD
+                if 'phone' in lower_name:
+                    return random_phone_number()
+                if 'email' in lower_name:
+                    return random_email()
+                return 'z' * schema.get('minLength', 10)
         raise ValueError(item)
 
     def generate_test_requests(
@@ -218,7 +225,10 @@ class OpenAPIMap:
             if type(payload) is not dict:
                 logger.warning("skip: %s", payload)
                 continue
-            for name in payload.keys():
+            for name, value in payload.items():
+                if not isinstance(value, (str, int, float, bool)):
+                    logger.warning("skip: %s", value)
+                    continue
                 copy = deepcopy(collected)
                 copy[loc][name] = "42'\""
                 path_params = copy['path']
@@ -312,7 +322,7 @@ class OpenAPIMap:
             for operation, path_item in path_object.items():
                 try:
                     logger.debug(
-                        "Endpoint: %s %s - %s",
+                        "%s %s - %s",
                         operation.upper(),
                         path,
                         path_item.get('summary', ''),
