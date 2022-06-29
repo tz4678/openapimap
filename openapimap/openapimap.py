@@ -180,7 +180,8 @@ class OpenAPIMap:
                 if 'email' in lower_name:
                     return random_email()
                 minlen = schema.get('minLength', 5)
-                if len(name) >= minlen:
+                maxlen = schema.get('maxLength', 10)
+                if maxlen >= len(name) >= minlen:
                     return name
                 return 'q' * minlen
         raise ValueError(item)
