@@ -223,6 +223,9 @@ class OpenAPIMap:
             else:
                 collected[loc][param['name']] = self.fuzzing(param)
 
+        # Проверим еще User-Agent, тк он часто вставляется в базу без проверок
+        # collected['header']['user-agent'] = self.user_agent
+
         # Теперь нужно проверить все параметры по очереди
         for loc, payload in collected.items():
             # {'in': 'body', 'name': 'body', 'description': 'List of user object', 'required': True, 'schema': {'type': 'array', 'items': {...}}}
