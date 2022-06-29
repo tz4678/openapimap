@@ -1,7 +1,9 @@
 [tool.poetry]
-name = "openapi-vulnscan"
+name = "openapimap"
 version = "0.1.0"
-description = ""
+description = "Swagger/OpenAPI Vulnerability Scanner."
+readme = "README.md"
+homepage = "https://github.com/tz4678/openapimap"
 authors = ["tz4678 <tz4678@gmail.com>"]
 
 [tool.poetry.dependencies]
@@ -21,3 +23,6 @@ isort = "^5.10.1"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+openapimap = "openapimap:OpenAPIMap.run"
